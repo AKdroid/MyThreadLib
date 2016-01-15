@@ -1,0 +1,250 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML//EN">
+<!-- saved from url=(0070)https://courses.ncsu.edu/csc501/lec/001/wrap/assignments/mythread.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>MyThread Library</title>
+<style type="text/css"></style></head>
+<body>
+<div align="center">
+<div align="left" style="font-family:Trebuchet MS;width: 700px;">
+<h1>CSC 501 Program <i>Threading library</i></h1>
+<hr>
+<h3>Assignment:</h3>
+Implement a <em>non pre-emptive</em>  user-level threading library.
+<hr>
+
+<h3>Due:</h3>
+See home
+<a href="https://courses.ncsu.edu/csc501/lec/001/index.html">page</a>.
+
+<hr>
+
+<h3>Description:</h3>
+Implement a non pre-emptive user-level threads library
+<i>mythread.a</i> with 
+the following routines.
+
+<h4>Thread routines.</h4>
+<blockquote>
+<dl>
+  <dt><em>MyThread <strong>MyThreadCreate</strong>
+      (void(*start_funct)(void *), void *args)</em>
+  </dt><dd>This routine creates a new <em>MyThread</em>.
+      The parameter <em>start_func</em> is the function in which the
+      new thread starts executing.
+      The parameter <em>args</em> is passed to the start function.
+      This routine does <em>not</em> pre-empt the invoking thread.
+      In others words the parent (invoking) thread will continue to
+      run; the child thread will sit in the ready queue.
+  </dd><dt><em>void <strong>MyThreadYield</strong>(void)</em>
+  </dt><dd>Suspends execution of invoking thread and yield to another thread.
+      The invoking thread  remains ready to execute—it is not
+      blocked.
+      Thus, if there is no other ready thread, the invoking thread will
+      continue to execute.
+  </dd><dt><em>int <strong>MyThreadJoin</strong>(MyThread thread)</em>
+  </dt><dd>Joins the invoking function with the specified child thread.
+      If the child has already terminated, do not block.
+      Note: A child may have terminated without the parent having
+      joined with it.
+      Returns 0 on success (after any necessary blocking).
+      It returns -1 on failure.
+      Failure occurs if specified thread is not an immediate
+      child of invoking thread.
+  </dd><dt><em>void <strong>MyThreadJoinAll</strong>(void)</em>
+  </dt><dd>Waits until all children have terminated.
+      Returns immediately if there are no <em>active</em> children.
+  </dd><dt><em>void <strong>MyThreadExit</strong>(void)</em>
+  </dt><dd>Terminates the invoking thread.  <em><strong>Note:</strong></em>
+      all <em>MyThread</em>s are required to invoke this function.
+      Do not allow functions to “fall out” of the start
+      function.
+</dd></dl>
+</blockquote>
+<h4>Semaphore routines.</h4>
+<blockquote>
+<dl>
+  <dt><em>MySemaphore <strong>MySemaphoreInit</strong>(int initialValue)</em>
+  </dt><dd>Create a semaphore.
+      Set the initial value to <em>initialValue</em>, which must be
+      non-negative.
+      A positive initial value has the same effect as invoking
+      <em>MySemaphoreSignal</em> the same number of times.
+  </dd><dt><em>void <strong>MySemaphoreSignal</strong>(MySemaphore sem)</em>
+  </dt><dd>Signal semaphore <em>sem</em>.
+      The invoking thread is not pre-empted.
+  </dd><dt><em>void <strong>MySemaphoreWait</strong>(MySemaphore sem)</em>
+  </dt><dd>Wait on semaphore <em>sem</em>.
+  </dd><dt><em>int <strong>MySemaphoreDestroy</strong>(MySemaphore sem)</em>
+  </dt><dd>Destroy semaphore <em>sem</em>.
+      Do not destroy semaphore if any threads are blocked on the
+      queue.
+      Return 0 on success, -1 on failure.
+</dd></dl>
+</blockquote>
+<h4>Unix process routines.</h4>
+The Unix process in which the user-level threads run is not a
+<em>MyThread</em>.
+Therefore, it will not be placed on the queue of
+<em>MyThreads.</em>
+Instead it will create the first <em>MyThread</em> and relinquish the
+processor to the <em>MyThread</em> engine. 
+<p>
+The following routine may be executed only by the Unix process.
+
+</p><blockquote>
+<dl>      
+  <dt><em>void <strong>MyThreadInit</strong>
+      (void(*start_funct)(void *), void *args)</em>
+  </dt><dd>This routine is called before any other <em>MyThread</em> call.
+      It is invoked only by the Unix process.
+      It is similar to invoking <em>MyThreadCreate</em> immediately
+      followed by  <em>MyThreadJoinAll</em>.
+      The <em>MyThread</em> created is the oldest ancestor of all
+      <em>MyThread</em>s—it is the
+      “main” <em>MyThread</em>.
+      This routine can only be invoked once.
+      It returns when there are no threads available to run (i.e.,
+      the thread ready queue is empty.
+</dd></dl>
+</blockquote>
+
+<h4>Notes:</h4>
+<ul>
+  <li>Use a FIFO (first-in, first-out) scheduling policy for threads
+      on the ready queue.
+  </li><li>Make all the routines available via a library.  Use the
+      <em>ar</em> command to make a library.
+      It will be used similar to this:
+      <blockquote>
+      <kbd>
+      ar rcs mythread.a file1.o file2.o file3.o
+      </kbd>
+      </blockquote>
+  </li><li>All programs that use this library will include
+      a header file (<em>mythread.h</em>) that defines all the
+      interfaces and data structures 
+      that are needed—but no more.
+  </li><li>This library does not have to be <em>thread-safe</em> and will 
+      only execute in a single-threaded (OS) process.
+      Assume that an internal thread operation cannot be
+      interrupted by another thread operation.
+      (E.g., <em>MyThreadExit</em> will not be interrupted by
+      <em>MyThreadYield</em>.)
+      That means that the library does not have to acquire locks to
+      protect the <strong>internal</strong> data of the thread library.
+      (A user may still have to acquire semaphores to protect user
+      data.)
+  </li><li>The interface only allows one parameter (a <strong>void
+      *</strong>) to be passed to a <em>MyThread</em>.
+      This is sufficient.
+      One can build wrapper functions that <em>pack</em> and
+      <em>unpack</em> an arbitrary parameter list into an object
+      pointed to by a <strong>void *</strong>.
+      This <a href="https://courses.ncsu.edu/csc501/lec/001/wrap/assignments/merge.c">program</a> gives an example of that.
+      It is not a complete program—some of the logic is absent.
+      It is only provided to illustrate how to use the interface.
+  </li><li>Allocate at least 8KB for each thread stack.
+      
+</li></ul>
+
+
+<hr>
+<h3>Turn In:</h3>
+Be sure to turnin <b>all</b> the files needed.
+Include a <tt>Makefile</tt> that creates a library (a
+".a" file) called <tt>mythread.a</tt>.
+An appropriate penalty will be assessed if this is not so.
+<p>
+Also, denote any resources used--including other students--in a file
+named <b>REFERENCES</b>.
+
+</p><hr>
+
+<h3>Resources:</h3>
+
+Here is the <a href="https://courses.ncsu.edu/csc501/lec/001/wrap/assignments/mythread.h">header</a> file for the library.
+This file is the <em>de facto</em> interface for the library.
+<b>Do not edit it.</b>
+<p>
+Additionally, here is a <a href="https://courses.ncsu.edu/csc501/lec/001/wrap/assignments/fib.c">program</a> that uses the
+library.
+<strong>The program comes with no warranty at all.</strong>
+It is provided as an illustration only.
+</p><p>
+Some <a href="https://courses.ncsu.edu/csc501/lec/001/wrap/assignments/mythread.pdf">slides</a> describing the assignment.
+</p>
+<hr>
+<h3>Testing:</h3>
+This assignment will be compiled and tested
+on a VCL Linux machine.
+
+<hr>
+
+<h3>Notes:</h3>
+<ol>
+<li> 
+    <b>Do not</b> use the <i>pthread</i> library or any
+    similar threading package.
+</li><li>
+  Instead use the “context”
+    routines: <em>getcontext(2), setcontext(2), makecontext(3)</em>,
+    and <em>swapcontext(3)</em>
+</li><li>
+    During testing many processes (or threads) will be created on
+    machines used by others.
+    Take care when testing.
+  </li><li><a href="https://courses.ncsu.edu/csc501/lec/001/wrap/assignments/mythread_tests.tar.gz">Test programs</a>
+  Here are four example test cases.
+  We think they are correct.
+  However, there is no warranty.
+  Alert us if you find any mistakes.
+  We will use many more test cases during grading; do not let success
+  on these codes lull you in to complacency. 
+  </li>
+  <li>
+  The code will be tested on the VCL image named 
+  <a href="https://courses.ncsu.edu/csc501/lec/001/wrap/assignments/submit.html">here.</a>
+  </li>
+</ol>
+
+<hr>
+<h3>Grading:</h3>
+The weighting of this assignment is given in
+<a href="https://courses.ncsu.edu/csc501/lec/001/policies.html#grading">policies</a>. 
+
+<h4>Extra Credit</h4>
+Extra credit of 5% is available.
+Two restrictions were designed into the assignment to keep it simple:
+(1) Each thread must end in <i>MyThreadExit</i> and
+(2) The initial "UNIX" process context is not used as a thread context.
+To receive the extra credit, students must provide the following
+work-arounds to those restrictions.
+Specifically, the library must do the following.
+<ol>
+  <li>Work correctly when threads do not end with <i>MyThreadExit</i>.</li>
+  <li>Create a rountine <i>int MyThreadInitExtra(void)</i> that initializes the
+  threads package <b>and</b> converts the UNIX process context into a
+  MyThread context. 
+  <blockquote>
+  <pre>  ...
+
+  MyThreadInitExtra(...);
+  // code here runs in thread context.
+  // it is the root or "oldest ancestor" thread
+  MyThreadCreate(...); // Creates a new thread
+  MyThreadYield(...);  // Yield to new thread just created
+
+  ...
+  </pre>
+  </blockquote>
+  </li>
+  <li>
+  Submit a second header file (mythreadextra.h) that contains
+  everything in the original header plus the definition of
+  MyThreadInitExtra().
+  </li>
+
+</ol></div>
+</div>
+
+</body></html>
