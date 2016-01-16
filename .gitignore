@@ -3,3 +3,5 @@
 build/
 temp/*.o
 temp/*.out
+tests/*.o
+tests/*.out
