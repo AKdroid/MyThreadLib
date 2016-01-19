@@ -1,0 +1,189 @@
+#include<ucontext.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<signal.h>
+#include"mythread.h"
+
+#define THREAD_READY 'R'
+#define THREAD_TERMINATED 'T'
+#define THREAD_BLOCKED 'B'
+#define THREAD_WAITING 'W'
+#define THREAD_RUNNING 'X'
+#define STACK_SIZE 16384
+
+
+struct fifo_node{
+    struct fifo_node* next;
+    void* payload;
+};
+
+struct llist_node{
+    struct llist_node* next;
+    void* payload;
+};
+
+struct my_thread{
+    ucontext_t * context;
+    char state;
+    struct llist_node* blocked_head;
+    struct llist_node* blocked_tail;
+    struct llist_node* children_head;
+    struct llist_node* children_tail;
+};
+
+struct thread_handler{
+    struct fifo_node* ready_head;
+    struct fifo_node* ready_tail;
+    ucontext_t *root_context;
+    struct my_thread root_thread;
+};
+
+typedef struct my_thread _MyThread;
+typedef struct fifo_node node;
+typedef struct llist_node lnode;
+/**
+ * Helper Functions for intializing, enqueuing, dequeuing and peeking the MyThread Queue
+*/
+void init_queue(node** head, node** tail){
+    *head = NULL;
+    *tail = NULL;
+}
+
+void enqueue_mythread(node ** head, node ** tail, _MyThread* t){
+    node* new_tail =(node*) malloc(sizeof(node));
+    new_tail->payload = t;
+    new_tail->next = NULL;
+    if(*head == NULL){
+        *head = new_tail;
+    }else{
+        (*tail)->next = new_tail;
+    }
+    *tail = new_tail;
+}
+
+_MyThread* dequeue_mythread(node** head, node** tail){
+    node* top = *head;
+    _MyThread* payload;
+    if(top == NULL)
+        return NULL;
+    *head = top->next;
+    payload = (_MyThread*) top->payload;
+    free(top);
+    if(*head == NULL)
+        *tail = NULL;
+    return payload;
+}
+
+_MyThread* peek_mythread(node* head){
+    if(head == NULL)
+        return NULL;
+    return (_MyThread*) head->payload;
+}
+
+//_MyThread Helper Functions
+
+
+struct thread_handler handler;
+
+void MyThreadInit(void(*start_funct)(void *), void *args){
+    // Create an empty stack for the handler.root_thread
+    char* stack = (char*) malloc(STACK_SIZE);
+    // Initialize the ready queue to be empty
+    handler.root_context = (ucontext_t*) malloc(sizeof(ucontext_t));
+    init_queue(&handler.ready_head,&handler.ready_tail);
+    // Prepare the root_thread
+    getcontext(root_context);
+    getcontext(handler.root_thread.context);
+    handler.root_thread.context =(ucontext_t*) malloc(sizeof(ucontext_t));
+    root_thread.context->uc_link=handler.root_context;
+    root_thread.context->uc_stack.ss_sp=stack;
+    root_thread.context->uc_stack.ss_size= STACK_SIZE;
+    makecontext(handler.root_thread.context,(void (*)(void))start_funct,1,args);
+    handler.root_thread.state = THREAD_RUNNING;
+    init_queue(&(handler.root_thread->blocked_head),&(handler.root_thread->blocked_tail));
+    init_queue(&(handler.root_thread->children_head),&(handler.root_thread->children_tail));
+    enqueue_mythread(&(handler.ready_head),&(handler.ready_tail),&(handler.root_thread));
+    //handler_root = *((_MyThread*)MyThreadCreate(start_funct,args));
+    swapcontext(handler.root_context,handler.root_thread.context);
+    // call join all on all children of handler.root_thread
+    
+}
+
+MyThread MyThreadCreate(void(*start_funct)(void *), void *args){
+    // Get the parent thread that created this thread
+    _MyThread* parent_thread = peek_mythread(handler.ready_head);
+    // Get the parent context to be defined as new thread's successor context
+    ucontext_t* parent_context = handler.root_context;
+    char *stack = (char *) malloc(STACK_SIZE);
+    if (parent_thread != NULL)
+        parent_context = &(parent_thread->context);
+    // Allocate space for a new thread    
+    _MyThread* new_thread = (_MyThread*)malloc(sizeof(_MyThread));
+    // Assign stack and parent context and then intialize the new context of the new thread with the specified function
+    new_thread->context = (ucontext_t*) malloc(sizeof(ucontext_t));
+    getcontext((new_thread->context)); 
+    new_thread->context->uc_link=parent_context;
+    new_thread->context->uc_stack.ss_sp=stack;
+    new_thread->context->uc_stack.ss_size= STACK_SIZE;
+    makecontext(new_thread->context,(void (*)(void))start_funct,1,args);
+    //set the state of the state of the thread to THREAD_READY
+    new_thread->state = THREAD_READY;
+    init_queue(&(new_thread->blocked_head),&(new_thread->blocked_tail));
+    init_queue(&(new_thread->children_head),&(new_thread->children_tail));
+    // Add the new thread as a child thread into parent's thread structure
+    enqueue_mythread(&(parent_thread->children_head),&(parent_thread->children_tail),new_thread);
+    // Add the new thread to the ready queue
+    enqueue_mythread(&(handler.ready_head),&(handler.ready_tail),new_thread);
+    return (MyThread) new_thread; 
+}
+
+void MyThreadYield(void){
+    _MyThread *next_thread;
+    _MyThread *running = dequeue_mythread(&(handler.ready_head),&(handler.ready_tail));
+    
+    if(running == NULL){
+        printf("ERROR: Yielding a thread in a non-thread context \n");
+        return;
+    }
+    next_thread = peek_mythread(handler.ready_head);
+    while(1){
+        next_thread = peek_mythread(handler.ready_head);
+        if(next_thread == NULL || next_thread->state == THREAD_READY)
+            break;    
+        //Lazy removal of blocked and exited threads from the ready queue
+        dequeue_mythread(&(handler.ready_head),&(handler.ready_tail));
+    }
+    if (next_thread == NULL){
+        /* Only one ready thread in the queue enqueue the thread again and return*/
+        enqueue_mythread(&(parent_thread->children_head),&(parent_thread->children_tail),running);
+        return;
+    }
+    running->state = THREAD_READY;
+    next_thread->state = THREAD_RUNNING;
+    enqueue_mythread(&(parent_thread->children_head),&(parent_thread->children_tail),running);
+    swapcontext(running->context,next_thread->context);
+}
+
+void MyThreadExit(void){
+    _MyThread *next_thread;
+    _MyThread *running = dequeue_mythread(&(handler.ready_head),&(handler.ready_tail));
+    if(running == NULL){
+        printf("ERROR: Yielding a thread in a non-thread context \n");
+        return;
+    }
+    next_thread = peek_mythread(handler.ready_head);
+    while(1){
+        next_thread = peek_mythread(handler.ready_head);
+        if(next_thread == NULL || next_thread->state == THREAD_READY)
+            break;    
+        //Lazy removal of blocked and exited threads from the ready queue
+        dequeue_mythread(&(handler.ready_head),&(handler.ready_tail));
+    }
+    if (next_thread == NULL){
+        /* Only one ready thread in the queue enqueue the thread again and return*/
+        return;
+    }
+    running->state = THREAD_TERMINATED;
+    next_thread->state = THREAD_RUNNING;
+    setcontext(running->context,next_thread->context);
+}

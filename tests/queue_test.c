@@ -1,6 +1,5 @@
 #include<stdio.h>
-#include "mythread.c"
-
+#include"myqueue.h"
 /*
     To compile run as follows:
     gcc queue_test.c -I ../src -o queue_test.o
@@ -8,41 +7,45 @@
     ./queue_test.o
 */
 
-void init_thread(MyThread* x, char state){
-    x->state=state;
-    init_queue(&(x->head),&(x->tail));
-}
 
 int main(){
     node *h, *t;
-    MyThread a,b,c;
-    void *temp;
+    int a,b,c,d;
+    a=3;
+    b=5;
+    c=6;
+    d=10;
     init_queue(&h,&t);
+    printf("Enqueue a\n");
+    enqueue(&h,&t,&a);
+    printf("Enqueue b\n");
+    enqueue(&h,&t,&b);
+    printf("Enqueue c\n");
+    enqueue(&h,&t,&c);
+        
+    printf("1: %d\n", *(int*)dequeue(&h,&t));
+    printf("2: %d\n", *(int*)dequeue(&h,&t));
+    printf("3: %d\n", *(int*)dequeue(&h,&t));
 
-    init_thread(&a, THREAD_READY);
-    init_thread(&b, THREAD_BLOCKED);
-    init_thread(&c, THREAD_EXITED);
+    printf("Enqueue b\n");
+    enqueue(&h,&t,&b);
+    printf("Enqueue c\n");
+    enqueue(&h,&t,&c);
+    printf("Enqueue a\n");
+    enqueue(&h,&t,&a);
+
+    printf("c in queue: %d\n",exists(h,&c));
+    printf("d in queue: %d\n",exists(h,&d));    
+
+    printf("1: %d\n", *(int*)peek(h));
+
     
 
-    enqueue_mythread(&h,&t,&a);
-    enqueue_mythread(&h,&t,&b);
-    enqueue_mythread(&h,&t,&c);
-    
-    printf("1: %c\n", dequeue_mythread(&h,&t)->state);
-    printf("2: %c\n", dequeue_mythread(&h,&t)->state);
-    printf("3: %c\n", dequeue_mythread(&h,&t)->state);
+    printf("1: %d\n", *(int*)dequeue(&h,&t));
+    printf("2: %d\n", *(int*)dequeue(&h,&t));
+    printf("3: %d\n", *(int*)dequeue(&h,&t));    
 
-    enqueue_mythread(&h,&t,&b);
-    enqueue_mythread(&h,&t,&c);
-    enqueue_mythread(&h,&t,&a);
-
-    printf("1: %c\n", peek_mythread(h)->state);
-
-    printf("1: %c\n", dequeue_mythread(&h,&t)->state);
-    printf("2: %c\n", dequeue_mythread(&h,&t)->state);
-    printf("3: %c\n", dequeue_mythread(&h,&t)->state);    
-
-    if (peek_mythread(h) == NULL) {
+    if (peek(h) == NULL) {
         printf("SUCCESS: Empty Queue As Expected\n");
     }
     else{
