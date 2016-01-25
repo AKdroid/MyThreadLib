@@ -13,7 +13,6 @@ void init_thread(thread *thr, ucontext_t* parent,char state, void(*func)(void *)
 
     
     char *stack= (char*)malloc(STACK_SIZE);
-    
     if(thr == NULL)
         thr = (thread*)malloc(sizeof(thread));
 
@@ -21,35 +20,36 @@ void init_thread(thread *thr, ucontext_t* parent,char state, void(*func)(void *)
 
     thr->state = state;
 
+    //thr->context = (ucontext_t*)malloc(sizeof(ucontext_t));i
+    getcontext(&(thr->context));
+
+    thr->context.uc_stack.ss_sp = stack;
+    thr->context.uc_stack.ss_size = STACK_SIZE;
+    thr->context.uc_link = parent;
+    
+    makecontext(&(thr->context),(void (*)(void))func,1,args);
+
     init_queue(&(thr->child_h),&(thr->child_t));
     init_queue(&(thr->blocked_h),&(thr->blocked_t));
 
-    thr->context = (ucontext_t*)malloc(sizeof(ucontext_t*));
-    getcontext(thr->context);
-
-    thr->context->uc_stack.ss_sp = stack;
-    thr->context->uc_stack.ss_size = STACK_SIZE;
-    thr->context->uc_link = parent;
-    
-    makecontext(thr->context,(void (*)(void))func,1,args);
-
 }
 
-void destroy_thread(thread* thr){
-
+void destroy_thread(thread** t){
+    thread* thr = *t;
+    printf("Destroying Thread\n");
     if(thr == NULL)
         return;
-    thread *temp;
-    free(thr->context->uc_stack.ss_sp);
-    free(thr->context);
-    temp=(thread*) peek(thr->child_h);
+    thread **temp;
+    free(thr->context.uc_stack.ss_sp);
+    //free(thr->context);
+    temp=(thread**) peek(thr->child_h);
     while(temp!= NULL){
-        temp=dequeue(&(thr->child_h),&(thr->child_t));
+        temp=(thread**)dequeue(&(thr->child_h),&(thr->child_t));
     }
-    temp=(thread*) peek(thr->blocked_h);
+    temp=(thread**) peek(thr->blocked_h);
     while(temp!= NULL){
-        temp=dequeue(&(thr->blocked_h),&(thr->blocked_t));
+        temp=(thread**)dequeue(&(thr->blocked_h),&(thr->blocked_t));
     }
-
     free(thr);
+    *t=NULL;
 }

@@ -39,7 +39,7 @@ f (int n)
           printf ("\nswitching from %d to %d\n", n, 3 - n);
           expired = 0;
           /* Switch to the other context, saving the current one. */
-          //swapcontext (&uc[n], &uc[3 - n]);
+          swapcontext (&uc[n], &uc[3 - n]);
         }
     }
 }
