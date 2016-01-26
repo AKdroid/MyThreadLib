@@ -4,6 +4,8 @@
 #include"myqueue.h"
 #include"thread.h"
 
+manager mgr;
+
 void f(void *x){
     int *p =(int*)x;
     int i,t = *p;
@@ -18,15 +20,25 @@ int main(){
     int t1=4;
     int t2=5;
     ucontext_t main;
-    init_thread(&a,&main,RUNNING,f,&t1);
-    init_thread(&b,&main,READY,f,&t2);
+    init_manager(&mgr);
+    a = init_thread(&mgr,&main,RUNNING,f,&t1);
+    b = init_thread(&mgr,&main,READY,f,&t2);
+    
+    c = get_thread(&mgr,0);
+
+    if(c == a)
+        printf("C Equals A\n");
+    
+    c = get_thread(&mgr,1);
+    
+    if(c == b){
+        printf("C equals B\n");
+    }
+    
     swapcontext(&main,&(a->context));
     print_thread(a);
-    a->state = TERMINATED;
-    destroy_thread(&a);
-    print_thread(a);
+    print_thread(b);
     swapcontext(&main,&(b->context));
-    b->state = TERMINATED;
-    destroy_thread(&b);
     printf("Success\n");
+    cleanup_thread(&mgr);
 }

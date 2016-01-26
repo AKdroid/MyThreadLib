@@ -17,27 +17,114 @@ struct uthread {
 
 typedef struct uthread uthread;
 */
+/*
+uthread* get_thread(manager* mgr,int id);
+int get_next_id(manager* mgr);
+*/
+void init_manager(manager *mgr){
+    int i;
+    for(i=0;i<BUCKETS;i++){
+        mgr->map[i] = NULL;
+    }
+    mgr->serial = 0;
+}
 
-void init_thread(uthread** uthr, ucontext_t* parent, char state, void(*func)(void*), void* args){
+void insert_thread(manager* mgr,uthread* thread){
+    lnode* head, *new_node;
+    int id;
+    id = thread->id;
+    head = mgr->map[id%BUCKETS];
+    new_node = (lnode*) malloc(sizeof(lnode)); 
+    new_node->payload = thread;
+    new_node->next = head;
+    mgr->map[id%BUCKETS] = new_node;
+}
+
+void delete_thread(manager* mgr, int id){
+    lnode* head=NULL; 
+    lnode* x=NULL;
+    lnode* y=NULL;
+    uthread* t;
+    head = mgr->map[id%BUCKETS];
+    x = head;
+    while(x != NULL){
+        if(x->payload != NULL && x->payload->id == id)
+            break;
+        y=x;
+        x=x->next;
+    }
+    if(x == NULL)
+        return;
+    if(x == head){
+        mgr->map[id%BUCKETS] = head->next;
+    }else{
+        y->next=x->next;
+    }
+    x->next = NULL;
+    t=x->payload;
+    x->payload = NULL;
+    destroy_thread(t);
+    free(x);
+}
+
+uthread* get_thread(manager* mgr,int id){
+    uthread* result = NULL;
+    lnode* x=NULL;
+    lnode* head = mgr->map[id%BUCKETS];
+    x = head;
+    while(x!=NULL){
+        if(x->payload != NULL && x->payload->id == id){
+            result = x->payload;
+            break;
+        }
+        x = x->next;
+    }
+    return result;
+}
+
+int get_next_id(manager* mgr){
+    int id = mgr->serial;
+    mgr->serial+=1;
+    return id;
+}
+
+void cleanup_thread(manager* mgr){
+    int i;
+    node* x,*del;
+    uthread* t;
+    for(i=0; i< BUCKETS; i++){
+        x = mgr->map[i];
+        while(x!=NULL){
+            del = x;
+            x = x->next;
+            t = del->payload;
+            del->next = NULL;
+            destroy_thread(t);
+            free(del);
+        }
+        mgr->map[i]=NULL;
+    }
+}
+
+uthread* init_thread(manager* mgr, ucontext_t* parent, char state, void(*func)(void*), void* args){
 
     // Initializes the components of a thread
     //if thr is NULL, allocate memory for thread
-    char* stack;
-    uthread* thr = *uthr;
+    char* stack=NULL;
+    uthread* thr = NULL;
 
-    if(thr == NULL){
-        thr = (uthread*) malloc (sizeof(uthread));
-        if (thr == NULL){
-            printf("THREAD: Init_thread # Malloc Failed for new thread allocation\n");
-            return;
-        }        
-        if(DEBUG_T){
+    thr = (uthread*) malloc (sizeof(uthread));
+    if (thr == NULL){
+        printf("THREAD: Init_thread # Malloc Failed for new thread allocation\n");
+        return;
+    }        
+    if(DEBUG_T){
             printf("THREAD: Init_thread # New thread memory allocation successful\n");
             printf("THREAD: Init_thread # Malloc Successful with new thread at: %llu with size %d\n",thr,sizeof(uthread));
-        }   
-    }
-   
+    }   
+    
     //Initialize the stack
+    thr->id = get_next_id(mgr);
     stack = (char*) malloc (STACK_SIZE);
     if(stack == NULL){
         printf("THREAD: Init_thread # Malloc Failed for stack allocation\n");
@@ -70,33 +157,21 @@ void init_thread(uthread** uthr, ucontext_t* parent, char state, void(*func)(voi
     if(DEBUG_T){
         printf("THREAD: Init_thread # Thread Initialization Complete for thread: %llu\n",thr);
     }
-    *uthr = thr; 
+    insert_thread(mgr,thr);
+    return thr;
 }
 
-void destroy_thread(uthread** thr){
+void destroy_thread(uthread* t){
     
     // Destroys the thread and frees the stack resources recursively
-    uthread* t;
-    if(thr == NULL)
+    if(t == NULL)
         return;
-    
-    t = *thr;
-    t->state = TERMINATED; //Set the state to terminated
     free(t->context.uc_stack.ss_sp); // Free the stack
     if(DEBUG_T){
-        printf("THREAD: Destroy_thread # Stack for the thread at %llu destroyed\n",thr);
+        printf("THREAD: Destroy_thread # Stack for the thread at %d destroyed\n",t->id);
+        printf("THREAD: Destroy_thread # Freed the resources used for the thread %d\n",t->id);
     }
-    if(t->waiting != NULL && t->waiting->state == ZOMBIE)    {
-        if(DEBUG_T)
-            printf("THREAD: Destroy_thread # Clearing the zombie thread %llu\n",t->waiting);
-        destroy_thread(&(t->waiting)); // Destroy the parent zombie thread
-    }
-    if(t->blocked_count == 0){
-        if(DEBUG_T)
-            printf("THREAD: Destroy_thread # Freeing the resources used for the thread %llu\n",thr);
-        free(t);      //Free the thread memory
-        *thr = NULL;  //Set the pointer to thread pointer as NULL
-    }
+    free(t); //Free the thread resources
 }
 
 void print_thread(uthread* thread){
@@ -104,7 +179,7 @@ void print_thread(uthread* thread){
         printf("NULL Thread\n");
         return;
     }
-    printf("Thread : %llu\n ",thread);
+    printf("Thread ID: %d\n ",thread->id);
     printf("State : %c\n",thread->state);
     printf("Context : %llu\n",&(thread->context));
     printf("Waiting : %llu\n",thread->waiting);
