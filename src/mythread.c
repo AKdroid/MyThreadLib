@@ -3,8 +3,12 @@
 #include<ucontext.h>
 #include"myqueue.h"
 #include"thread.h"
+#include"mysemaphore.h"
 #include"mythread.h"
+
 #define DEBUG 0
+
+
 
 struct scheduler{
     node* ready_h;
@@ -14,6 +18,7 @@ struct scheduler{
 } handler;
 
 manager mgr;
+manager smgr;
 
 uthread* get_running_thread(){
     int x = 0;
@@ -57,11 +62,12 @@ void print_ready_queue(){
 void MyThreadInit(void(*start_funct)(void *), void *args){
 
     uthread* t;
+    node* temp;
     // Initialize the manager
     if(DEBUG)
         printf("MYTHREAD: MyThreadInit # Initializing Manager\n");
     init_manager(&mgr);
-
+    init_smanager(&smgr);
     if(DEBUG)
         printf("MYTHREAD: MyThreadInit # Creating the root thread\n");
     //Create a new root thread, add it to the manager.
@@ -89,6 +95,13 @@ void MyThreadInit(void(*start_funct)(void *), void *args){
     //Clean up all the threads once there are no threads in the ready queue.
     if(DEBUG)
         printf("MYTHREAD: MyThreadInit # Destroying all remaining threads\n");
+
+    do{
+        temp = dequeue(&(handler.ready_h),&(handler.ready_t));
+    }
+    while(temp != NULL);
+    
+    cleanup_semaphores(&smgr);
     cleanup_thread(&mgr);
 }
 
@@ -311,3 +324,125 @@ void MyThreadExit(void){
     ready->state=RUNNING;    
     setcontext(&(ready->context));
 }
+
+// ****** SEMAPHORE OPERATIONS ****** 
+// Create a semaphore
+MySemaphore MySemaphoreInit(int initialValue){
+
+    //create a new semaphore
+    if(initialValue < 0)
+        return NULL;
+
+    usemaphore *p = (usemaphore*)malloc(sizeof(usemaphore));
+
+    init_queue(&(p->wait_h),&(p->wait_t));
+
+    p->max_value = initialValue;
+    p->status = initialValue;
+    p->id = get_next_sid(&smgr);
+    insert_semaphore(&smgr,p);
+
+    return (MySemaphore) p->id;
+
+}
+
+// Signal a semaphore
+void MySemaphoreSignal(MySemaphore sem){
+    int x;
+    usemaphore *p;
+    uthread* t;
+    if(sem == NULL)
+        return;
+
+    p = get_semaphore(&smgr, (int)sem);
+
+    if(p == NULL)
+        return NULL;
+        
+    x = (int) peek(p->wait_h);
+
+    if(x == 0){
+        p->status = p->status+1;
+        return;
+    }
+
+    dequeue(&(p->wait_h),&(p->wait_t));
+
+    t = get_thread(&mgr,x);
+
+    if(t == NULL)
+        return;
+
+    t->blocked_count -= 1;
+
+    if(t->blocked_count == 0){
+        t->state = READY;        
+        enqueue(&(handler.ready_h),&(handler.ready_t),(void*)x);
+    }        
+
+}
+
+// Wait on a semaphore
+void MySemaphoreWait(MySemaphore sem){
+    int x;
+    usemaphore *p;
+    uthread* running;
+    uthread* ready;
+    if(sem == NULL)
+        return;
+    p = get_semaphore(&smgr,(int)sem);
+    
+    if(p == NULL)
+        return;
+
+    if(p->status > 0){
+        p->status -= 1;
+        return; 
+    }
+
+    running = get_running_thread();
+
+    if(DEBUG)
+        printf("MYTHREAD: MySemaphoreWait # Invoking Thread : %d\n",running != NULL ? running->id : 0);
+
+    if(running == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MySemaphoreWait # No Running Thread. Ready Queue Empty. Exiting Framework.\n");
+        setcontext(&(handler.main_ctx));
+    }
+
+    ready = get_next_ready_thread();
+
+    if(DEBUG)
+        printf("MYTHREAD: MySemaphoreWait # Next Ready Thread : %d\n",ready != NULL ? ready->id : 0);
+
+    if(ready == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MySemaphoreWait # No Ready Thread. Ready Queue Empty. Exiting Framework.\n");
+        setcontext(&(handler.main_ctx));
+    }
+
+    running->state = BLOCKED;
+    running->blocked_count+=1;
+    enqueue(&(p->wait_h),&(p->wait_t),(void*)running->id);
+    
+    ready->state = RUNNING;
+    swapcontext(&(running->context),&(ready->context));
+
+}
+
+// Destroy on a semaphore
+int MySemaphoreDestroy(MySemaphore sem){
+   
+    usemaphore* temp;
+    int x;
+    if(sem == NULL)
+        return;
+    temp = get_semaphore(&smgr,(int)sem);
+    if(temp->wait_h != NULL)
+        return -1;
+    delete_semaphore(&smgr,temp);
+    return 0;
+
+}
+
