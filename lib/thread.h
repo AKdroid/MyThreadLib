@@ -19,6 +19,7 @@ struct uthread {
     struct node* child_h; // head of the child queue/list 
     struct node* child_t; // tail of the child queue/list
     int blocked_count;
+    char* stack;
 };
 
 struct lnode{

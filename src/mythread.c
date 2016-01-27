@@ -141,5 +141,51 @@ void MyThreadYield(void){
 }
 
 void MyThreadExit(void){
-    setcontext(&(handler.main_ctx));
+
+    uthread* running;
+    uthread* ready;
+    uthread* waiting;
+
+    running = get_running_thread();
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadExit # Invoking Thread : %d\n",running != NULL ? running->id : 0);
+
+    if(running == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MyThreadExit # No Running Thread. Ready Queue Empty. Exiting Framework.\n");
+        setcontext(&(handler.main_ctx));
+    }
+    
+    running->state = TERMINATED;
+    waiting = get_thread(&mgr,running->waiting);
+    running->waiting = 0;
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadExit # Waiting Thread : %d\n",waiting != NULL ? waiting->id : 0);
+    
+    if(waiting != NULL){
+        waiting->blocked_count -= 1;
+        if (waiting->state == BLOCKED && waiting->blocked_count == 0){
+            waiting->state = READY;
+            enqueue(&(handler.ready_h),&(handler.ready_t),(void*)waiting->id);
+            if(DEBUG){
+                print_thread(waiting);
+                print_ready_queue();
+                printf("MYTHREAD: MyThreadExit # Requeued Waiting Thread : %d back to ready queue\n",waiting->id);
+            }
+        }
+    }
+    ready = get_next_ready_thread();
+
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadExit # Next Ready Thread : %d\n",ready != NULL ? ready->id : 0);    
+
+    if(ready == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MyThreadExit # No Ready Thread. Ready Queue Empty. Exiting Framework.\n");
+        setcontext(&(handler.main_ctx));
+    }
+    
+    delete_thread(&mgr,running->id);
+    ready->state=RUNNING;    
+    setcontext(&(ready->context));
 }

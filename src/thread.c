@@ -134,6 +134,7 @@ uthread* init_thread(manager* mgr, ucontext_t* parent, char state, void(*func)(v
             printf("THREAD: Init_thread # New Stack allocation successful with address %llu and size %d\n",stack,STACK_SIZE);
     }
     // Initialize the context of the new thread
+    thr->stack = stack;
     getcontext(&(thr->context));
     thr->context.uc_link = parent;
     thr->context.uc_stack.ss_sp = stack;   
@@ -163,6 +164,7 @@ uthread* init_thread(manager* mgr, ucontext_t* parent, char state, void(*func)(v
 
 void destroy_thread(uthread* t){
     node* h;
+    char* x;
     // Destroys the thread and frees the stack resources recursively
     if(t == NULL)
         return;
@@ -171,7 +173,9 @@ void destroy_thread(uthread* t){
     while(h != 0)
         h = (int)dequeue(&(t->child_h),&(t->child_t));
 
-    free(t->context.uc_stack.ss_sp); // Free the stack
+    x = t->stack;
+    t->stack =NULL;
+    free(x); // Free the stack
     if(DEBUG_T){
         printf("THREAD: Destroy_thread # Stack for the thread at %d destroyed\n",t->id);
         printf("THREAD: Destroy_thread # Freed the resources used for the thread %d\n",t->id);
