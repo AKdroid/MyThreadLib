@@ -2,7 +2,7 @@
 #define THREAD_H
 #include<ucontext.h>
 #include"myqueue.h"
-#define DEBUG_T 1
+#define DEBUG_T 0
 #define READY 'R'
 #define RUNNING 'X'
 #define BLOCKED 'B'

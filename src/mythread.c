@@ -4,7 +4,7 @@
 #include"myqueue.h"
 #include"thread.h"
 #include"mythread.h"
-#define DEBUG 1
+#define DEBUG 0
 
 struct scheduler{
     node* ready_h;
@@ -178,11 +178,88 @@ void MyThreadYield(void){
 // Join with a child thread
 int MyThreadJoin(MyThread thread){
 
+    uthread* running;
+    uthread* ready;
+    uthread* target;
+
+    running = get_running_thread();
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadJoin # Invoking Thread : %d\n",running != NULL ? running->id : 0);
+
+    if(running == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MyThreadJoin # No Running Thread. Ready Queue Empty. Exiting Framework.\n");
+        setcontext(&(handler.main_ctx));
+    }
+
+    if(! exists(running->child_h,thread)){
+        if(DEBUG){
+            printf("MYTHREAD: MyThreadJoin # Existence test failed for child node target: %d for running %d.\n",running->id,(int)thread);    
+            print_thread(running);
+        }
+        return -1;
+    }
+
+    target = get_thread(&mgr,(int)thread);
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadJoin # Target Thread : %d\n",target != NULL ? target->id : 0);
+
+    if(target == NULL){
+        if(DEBUG){
+            printf("MYTHREAD: MyThreadJoin # Existence passed. The child has already terminated: Not Blocking.\n");
+        }
+        return 0;
+    }
+
+    ready = get_next_ready_thread();
+
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadJoin # Next Ready Thread : %d\n",ready != NULL ? ready->id : 0);
+
+    if(ready == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MyThreadJoin # No thread in ready queue. Exiting the threading framework\n");
+        setcontext(&(handler.main_ctx));
+    }
+    
+    running->state = BLOCKED;
+    
+    ready->waiting = running->id;
+    running->blocked_count += 1;
+    ready->state = RUNNING;
+
+    swapcontext(&(running->context),&(ready->context));
+
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadJoin # Swapcontext returned after join to the running thread : %d\n",running->id);
+
+    return 0;
+    
 }
 
 // Join with all children
 void MyThreadJoinAll(void){
 
+    uthread* running;
+    node* child;    
+
+    running = get_running_thread();
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadJoinAll # Invoking Thread : %d\n",running != NULL ? running->id : 0);
+
+    if(running == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MyThreadJoinAll # No Running Thread. Ready Queue Empty. Exiting Framework.\n");
+        setcontext(&(handler.main_ctx));
+    }
+    
+    child = running->child_h;
+    
+    while(child != NULL){
+        MyThreadJoin(child->payload);
+        child = child->next;
+    }
+  
 }
 
 void MyThreadExit(void){
