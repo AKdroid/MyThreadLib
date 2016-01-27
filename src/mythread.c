@@ -137,6 +137,51 @@ MyThread MyThreadCreate(void(*start_funct)(void *), void *args){
 // Yield invoking thread
 void MyThreadYield(void){
 
+    uthread* running;
+    uthread* ready;
+    uthread* waiting;
+
+    running = get_running_thread();
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadYield # Invoking Thread : %d\n",running != NULL ? running->id : 0);
+
+    if(running == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MyThreadYield # No Running Thread. Ready Queue Empty. Exiting Framework.\n");
+        setcontext(&(handler.main_ctx));
+    }
+
+    
+    ready = get_next_ready_thread();
+
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadYield # Next Ready Thread : %d\n",ready != NULL ? ready->id : 0);
+
+    enqueue(&(handler.ready_h),&(handler.ready_t),(void*)running->id);
+
+    if(ready == NULL) {
+        if(DEBUG)
+            printf("MYTHREAD: MyThreadYield # No thread in ready queue. Resuming the invoking thread\n");
+        return;
+    }
+    
+    ready->state = RUNNING;
+    running->state = READY;
+
+    swapcontext(&(running->context),&(ready->context));
+    
+    if(DEBUG)
+        printf("MYTHREAD: MyThreadYield # Swapcontext returned to thread: %d\n",running->id);
+
+}
+
+// Join with a child thread
+int MyThreadJoin(MyThread thread){
+
+}
+
+// Join with all children
+void MyThreadJoinAll(void){
 
 }
 
