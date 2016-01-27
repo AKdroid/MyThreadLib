@@ -26,7 +26,7 @@ void init_manager(manager *mgr){
     for(i=0;i<BUCKETS;i++){
         mgr->map[i] = NULL;
     }
-    mgr->serial = 0;
+    mgr->serial = 1;
 }
 
 void insert_thread(manager* mgr,uthread* thread){
@@ -116,7 +116,7 @@ uthread* init_thread(manager* mgr, ucontext_t* parent, char state, void(*func)(v
     thr = (uthread*) malloc (sizeof(uthread));
     if (thr == NULL){
         printf("THREAD: Init_thread # Malloc Failed for new thread allocation\n");
-        return;
+        return NULL;
     }        
     if(DEBUG_T){
             printf("THREAD: Init_thread # New thread memory allocation successful\n");
@@ -128,7 +128,7 @@ uthread* init_thread(manager* mgr, ucontext_t* parent, char state, void(*func)(v
     stack = (char*) malloc (STACK_SIZE);
     if(stack == NULL){
         printf("THREAD: Init_thread # Malloc Failed for stack allocation\n");
-        return;
+        return NULL;
     }
     if(DEBUG_T){
             printf("THREAD: Init_thread # New Stack allocation successful with address %llu and size %d\n",stack,STACK_SIZE);
@@ -150,7 +150,7 @@ uthread* init_thread(manager* mgr, ucontext_t* parent, char state, void(*func)(v
     init_queue(&(thr->child_h),&(thr->child_t));
     
     //Initialize the join thread wait pointer
-    thr->waiting = NULL;
+    thr->waiting = 0;
 
     //Initialized the blocked count to 0
     thr->blocked_count = 0;
@@ -162,10 +162,15 @@ uthread* init_thread(manager* mgr, ucontext_t* parent, char state, void(*func)(v
 }
 
 void destroy_thread(uthread* t){
-    
+    node* h;
     // Destroys the thread and frees the stack resources recursively
     if(t == NULL)
         return;
+    //Empty the child queue
+    h = (int)dequeue(&(t->child_h),&(t->child_t));
+    while(h != 0)
+        h = (int)dequeue(&(t->child_h),&(t->child_t));
+
     free(t->context.uc_stack.ss_sp); // Free the stack
     if(DEBUG_T){
         printf("THREAD: Destroy_thread # Stack for the thread at %d destroyed\n",t->id);
@@ -187,7 +192,7 @@ void print_thread(uthread* thread){
     printf("Children: \n");
     node* h=thread->child_h;
     while(h!= NULL){
-        printf("%llu ",*(uthread**)(h->payload));
+        printf("%d ",(int)(h->payload));
         h=h->next;
     }
     printf("\n");

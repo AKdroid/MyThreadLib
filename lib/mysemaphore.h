@@ -2,7 +2,7 @@
 #define MYSEMAPHORE_H
 #define DEBUG_S 0
 
-#include"queue.h"
+#include"myqueue.h"
 #include"thread.h"
 
 struct usemaphore{

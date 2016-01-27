@@ -15,7 +15,7 @@ struct uthread {
     int id;
     char state; // state of the thread
     ucontext_t context; // context of the thread
-    struct uthread* waiting; //parent thread if blocked else null
+    int waiting; //parent thread if blocked else null
     struct node* child_h; // head of the child queue/list 
     struct node* child_t; // tail of the child queue/list
     int blocked_count;
