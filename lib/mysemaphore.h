@@ -7,7 +7,6 @@
 #define BOXES 5
 struct usemaphore{
     int id;
-    int max_value; 
     int status;  
     node * wait_h;
     node * wait_t;

@@ -140,7 +140,9 @@ uthread* init_thread(manager* mgr, ucontext_t* parent, char state, void(*func)(v
     thr->context.uc_stack.ss_sp = stack;   
     thr->context.uc_stack.ss_size = STACK_SIZE;
     thr->context.uc_stack.ss_flags = 0;
-    makecontext(&(thr->context),(void(*)(void))func,1,args);
+    if(func != NULL)    
+        makecontext(&(thr->context),(void(*)(void))func,1,args);
+
     if(DEBUG_T){
         printf("THREAD: Init_thread # Make Context Successful for thread : %llu\n",thr);
     }    

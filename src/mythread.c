@@ -339,7 +339,6 @@ MySemaphore MySemaphoreInit(int initialValue){
 
     init_queue(&(p->wait_h),&(p->wait_t));
 
-    p->max_value = initialValue;
     p->status = initialValue;
     p->id = get_next_sid(&smgr);
     if(DEBUG)

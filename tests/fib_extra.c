@@ -67,8 +67,10 @@ main(int argc, char **argv)
   }
 
   printf("fib(%d) = ", n);
-  MyThreadInit(fib, (void*)&n);
+  MyThreadInitExtra();
+  fib((void*)&n);
   printf("%d\n", n);
+  MyThreadExit();
 }
 
 
