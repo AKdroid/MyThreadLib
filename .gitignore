@@ -5,3 +5,5 @@ temp/*.o
 temp/*.out
 tests/*.o
 tests/*.out
+src/*.o
+*.a
