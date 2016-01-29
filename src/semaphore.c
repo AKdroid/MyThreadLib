@@ -20,7 +20,7 @@ void insert_semaphore(smanager* mgr,usemaphore* sem){
     new_node = (snode*) malloc(sizeof(lnode));
     new_node->payload = sem;
     new_node->next = head;
-    mgr->map[id%BOXES] = sem;
+    mgr->map[id%BOXES] = new_node;
 }
 
 void delete_semaphore(smanager* mgr,int id){

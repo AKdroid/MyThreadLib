@@ -330,18 +330,30 @@ void MyThreadExit(void){
 MySemaphore MySemaphoreInit(int initialValue){
 
     //create a new semaphore
+    usemaphore*  p;
+    usemaphore* q;
     if(initialValue < 0)
         return NULL;
 
-    usemaphore *p = (usemaphore*)malloc(sizeof(usemaphore));
+    p = (usemaphore*)malloc(sizeof(usemaphore));
 
     init_queue(&(p->wait_h),&(p->wait_t));
 
     p->max_value = initialValue;
     p->status = initialValue;
     p->id = get_next_sid(&smgr);
+    if(DEBUG)
+        printf("MYTHREAD: MySemaphoreInit # Created New Semaphore | id : %d | status : %d|\n",p->id,p->status);
     insert_semaphore(&smgr,p);
-
+    if(DEBUG){
+        q = get_semaphore(&smgr,p->id);
+        if( q==p)
+            printf("Success\n");
+        else
+            printf("Failure\n");
+        
+        printf("MYTHREAD: MySemaphoreInit # Created New Semaphore | id : %d | status : %d|\n",p->id,p->status);
+    }
     return (MySemaphore) p->id;
 
 }
@@ -355,14 +367,21 @@ void MySemaphoreSignal(MySemaphore sem){
         return;
 
     p = get_semaphore(&smgr, (int)sem);
+    
+    if(DEBUG)
+        printf("MYTHREAD: MySemaphoreSignal # Signalled a semaphore | id : %d|\n",(int)sem);
 
     if(p == NULL)
         return NULL;
-        
+    
+    if(DEBUG)
+        printf("MYTHREAD: MySemaphoreSignal # Signalled a semaphore | id : %d | status : %d|\n",p->id,p->status);
+    
+    p->status += 1;
+    
     x = (int) peek(p->wait_h);
 
     if(x == 0){
-        p->status = p->status+1;
         return;
     }
 
@@ -392,11 +411,14 @@ void MySemaphoreWait(MySemaphore sem){
         return;
     p = get_semaphore(&smgr,(int)sem);
     
+    if(DEBUG)
+        printf("MYTHREAD: MySemaphoreWait # Waiting on a semaphore | id : %d | status : %d|\n",p->id,p->status);
+
     if(p == NULL)
         return;
 
+    p->status -= 1;
     if(p->status > 0){
-        p->status -= 1;
         return; 
     }
 
@@ -433,14 +455,16 @@ void MySemaphoreWait(MySemaphore sem){
 
 // Destroy on a semaphore
 int MySemaphoreDestroy(MySemaphore sem){
-   
+    printf("MYTHREAD: MySemaphoreDestroy # Destroying a semaphore: %d\n",(int)sem);   
     usemaphore* temp;
     int x;
     if(sem == NULL)
         return;
     temp = get_semaphore(&smgr,(int)sem);
+    if(DEBUG)
+        printf("MYTHREAD: MySemaphoreDestroy # Destroying a semaphore | id : %d | status : %d|\n",temp->id,temp->status);
     if(temp->wait_h != NULL)
-        return -1;
+        return -1;    
     delete_semaphore(&smgr,temp);
     return 0;
 

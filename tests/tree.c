@@ -1,4 +1,4 @@
-LL#include <stdio.h>
+#include <stdio.h>
 #include "mythread.h"
 
 int n, m;
