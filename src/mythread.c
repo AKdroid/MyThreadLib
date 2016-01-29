@@ -455,7 +455,6 @@ void MySemaphoreWait(MySemaphore sem){
 
 // Destroy on a semaphore
 int MySemaphoreDestroy(MySemaphore sem){
-    printf("MYTHREAD: MySemaphoreDestroy # Destroying a semaphore: %d\n",(int)sem);   
     usemaphore* temp;
     int x;
     if(sem == NULL)
